@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="robots" content="noindex,nofollow"/>
+<title>Red Green — Panel de números</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🟢</text></svg>"/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0713;--card:#110c20;--card2:#160f2a;
+  --green:#2ed47f;--green3:#15894a;--gold:#e0b964;--red:#ef5b5b;
+  --text:#eef4ee;--muted:#7d9384;
+  --border:rgba(46,212,127,0.12);--border2:rgba(46,212,127,0.25);
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:15px;min-height:100vh}
+.wrap{max-width:860px;margin:0 auto;padding:24px 16px 60px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px}
+h1{font-family:'Bebas Neue',Impact,sans-serif;font-size:2rem;letter-spacing:.06em;color:var(--green)}
+h1 span{color:var(--gold)}
+.muted{color:var(--muted);font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px}
+button{font:inherit;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--text);border-radius:9px;padding:8px 14px}
+button:hover{border-color:var(--green)}
+button.primary{background:var(--green);color:#06140c;border-color:var(--green);font-weight:600}
+button.danger:hover{border-color:var(--red);color:var(--red)}
+button:disabled{opacity:.5;cursor:default}
+input{font:inherit;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:9px;padding:9px 12px;width:100%}
+input:focus{outline:none;border-color:var(--green)}
+
+#login{max-width:360px;margin:12vh auto 0;display:flex;flex-direction:column;gap:12px}
+.err{color:var(--red);font-size:.85rem;min-height:1.2em}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.stat b{display:block;font-size:1.6rem;font-weight:600}
+.stat{padding:14px}
+
+.add{display:grid;grid-template-columns:1.4fr 1fr auto;gap:8px;margin-bottom:16px}
+
+.row{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:14px;padding:14px 16px;border-top:1px solid var(--border)}
+.row:first-child{border-top:none}
+.row.off .info{opacity:.45}
+.num{font-weight:600;letter-spacing:.02em}
+.name{background:transparent;border:1px dashed transparent;padding:2px 6px;margin-left:-6px;width:auto;max-width:220px;color:var(--muted);font-size:.85rem}
+.name:hover{border-color:var(--border2)}
+.clicks{text-align:right;font-variant-numeric:tabular-nums}
+.clicks b{font-size:1.1rem}
+.actions{display:flex;gap:6px}
+
+.switch{position:relative;width:46px;height:26px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0;position:absolute}
+.slider{position:absolute;inset:0;background:#2a2238;border-radius:26px;transition:.2s;cursor:pointer}
+.slider::before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked+.slider{background:var(--green3)}
+.switch input:checked+.slider::before{transform:translateX(20px)}
+.switch input:focus-visible+.slider{outline:2px solid var(--green);outline-offset:2px}
+
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--muted)}
+.on .dot{background:var(--green);box-shadow:0 0 8px var(--green)}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card2);border:1px solid var(--border2);padding:10px 16px;border-radius:10px;opacity:0;transition:.2s;pointer-events:none}
+#toast.show{opacity:1}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+
+@media (max-width:600px){
+  .add{grid-template-columns:1fr}
+  .row{grid-template-columns:auto 1fr;row-gap:10px}
+  .clicks{text-align:left}
+  .actions{justify-content:flex-end}
+  .stats .stat b{font-size:1.3rem}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <form id="login" class="card" hidden>
+    <h1>RED<span>·</span>GREEN</h1>
+    <p class="muted">Panel de números de WhatsApp</p>
+    <input id="pass" type="password" placeholder="Contraseña" autocomplete="current-password" required/>
+    <button class="primary" type="submit">Entrar</button>
+    <div class="err" id="loginErr"></div>
+  </form>
+
+  <main id="app" hidden>
+    <header>
+      <div>
+        <h1>RED<span>·</span>GREEN</h1>
+        <p class="muted">Los clics se reparten en orden entre los números conectados.</p>
+      </div>
+      <button id="logout" type="button">Salir</button>
+    </header>
+
+    <div class="stats">
+      <div class="card stat"><span class="muted">Conectados</span><b id="sOn">–</b></div>
+      <div class="card stat"><span class="muted">Desconectados</span><b id="sOff">–</b></div>
+      <div class="card stat"><span class="muted">Clics totales</span><b id="sClicks">–</b></div>
+    </div>
+
+    <form class="card add" id="addForm">
+      <input id="addNum" inputmode="numeric" placeholder="Número (ej. 5491133633742)" required/>
+      <input id="addName" placeholder="Nombre / agente (opcional)" maxlength="60"/>
+      <button class="primary" type="submit">Agregar</button>
+    </form>
+
+    <div class="card" style="padding:0" id="list"></div>
+  </main>
+</div>
+<div id="toast"></div>
+
+<script>
+const KEY_STORE='rg_admin_key';
+let adminKey='';
+try{adminKey=sessionStorage.getItem(KEY_STORE)||'';}catch(e){}
+
+const $=id=>document.getElementById(id);
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2200);}
+
+async function api(method,body,query=''){
+  const res=await fetch('/api/admin'+query,{
+    method,
+    headers:{'Content-Type':'application/json','x-admin-key':adminKey},
+    body:body?JSON.stringify(body):undefined
+  });
+  if(res.status===401){logout();throw new Error('Contraseña incorrecta');}
+  if(res.status===204)return null;
+  const data=await res.json().catch(()=>null);
+  if(!res.ok)throw new Error(data?.error||'Error '+res.status);
+  return data;
+}
+
+function fmtNum(n){
+  const m=n.match(/^54(9?)(\d{2,4})(\d{6,8})$/);
+  return m?`+54 ${m[1]?'9 ':''}${m[2]} ${m[3].slice(0,-4)}-${m[3].slice(-4)}`:'+'+n;
+}
+function fmtAgo(iso){
+  if(!iso)return 'sin clics aún';
+  const s=Math.round((Date.now()-new Date(iso))/1000);
+  if(s<60)return 'último clic hace segundos';
+  if(s<3600)return `último clic hace ${Math.round(s/60)} min`;
+  if(s<86400)return `último clic hace ${Math.round(s/3600)} h`;
+  return `último clic hace ${Math.round(s/86400)} d`;
+}
+
+function render(rows){
+  const on=rows.filter(r=>r.activo).length;
+  $('sOn').textContent=on;
+  $('sOff').textContent=rows.length-on;
+  $('sClicks').textContent=rows.reduce((a,r)=>a+r.clicks,0);
+
+  const list=$('list');
+  list.replaceChildren();
+  if(!rows.length){
+    const e=document.createElement('div');e.className='empty';e.textContent='No hay números cargados.';
+    list.append(e);return;
+  }
+  if(!on){
+    const e=document.createElement('div');e.className='empty';e.style.color='var(--gold)';
+    e.textContent='⚠ Ningún número conectado: la landing va a usar la lista de respaldo.';
+    list.append(e);
+  }
+  rows.forEach(r=>{
+    const row=document.createElement('div');
+    row.className='row '+(r.activo?'on':'off');
+
+    const sw=document.createElement('label');sw.className='switch';sw.title=r.activo?'Desconectar':'Conectar';
+    const cb=document.createElement('input');cb.type='checkbox';cb.checked=r.activo;
+    cb.setAttribute('aria-label',(r.activo?'Desconectar ':'Conectar ')+r.numero);
+    cb.onchange=async()=>{
+      cb.disabled=true;
+      try{await api('PATCH',{id:r.id,activo:cb.checked});toast(cb.checked?'Número conectado':'Número desconectado');load();}
+      catch(e){cb.checked=!cb.checked;cb.disabled=false;toast(e.message);}
+    };
+    const sl=document.createElement('span');sl.className='slider';
+    sw.append(cb,sl);
+
+    const info=document.createElement('div');info.className='info';
+    const num=document.createElement('div');num.className='num';
+    const dot=document.createElement('span');dot.className='dot';
+    num.append(dot,fmtNum(r.numero));
+    const name=document.createElement('input');name.className='name';name.value=r.nombre||'';name.placeholder='Sin nombre';name.maxLength=60;
+    name.onchange=async()=>{try{await api('PATCH',{id:r.id,nombre:name.value});toast('Nombre guardado');}catch(e){toast(e.message);}};
+    const ago=document.createElement('div');ago.className='muted';ago.textContent=fmtAgo(r.last_used);
+    info.append(num,name,ago);
+
+    const clicks=document.createElement('div');clicks.className='clicks';
+    const b=document.createElement('b');b.textContent=r.clicks;
+    const l=document.createElement('div');l.className='muted';l.textContent='clics';
+    clicks.append(b,l);
+
+    const actions=document.createElement('div');actions.className='actions';
+    const reset=document.createElement('button');reset.type='button';reset.textContent='Reiniciar';reset.title='Poner los clics en 0';
+    reset.onclick=async()=>{if(!confirm('¿Poner en 0 los clics de '+fmtNum(r.numero)+'?'))return;try{await api('PATCH',{id:r.id,resetClicks:true});load();}catch(e){toast(e.message);}};
+    const del=document.createElement('button');del.type='button';del.className='danger';del.textContent='Eliminar';
+    del.onclick=async()=>{if(!confirm('¿Eliminar '+fmtNum(r.numero)+'?'))return;try{await api('DELETE',null,'?id='+r.id);toast('Número eliminado');load();}catch(e){toast(e.message);}};
+    actions.append(reset,del);
+
+    row.append(sw,info,clicks,actions);
+    list.append(row);
+  });
+}
+
+async function load(){
+  try{render(await api('GET'));}catch(e){toast(e.message);}
+}
+
+function showApp(){$('login').hidden=true;$('app').hidden=false;load();}
+function logout(){
+  adminKey='';try{sessionStorage.removeItem(KEY_STORE);}catch(e){}
+  $('app').hidden=true;$('login').hidden=false;
+}
+
+$('login').onsubmit=async ev=>{
+  ev.preventDefault();
+  adminKey=$('pass').value;$('loginErr').textContent='';
+  try{
+    await api('GET');
+    try{sessionStorage.setItem(KEY_STORE,adminKey);}catch(e){}
+    showApp();
+  }catch(e){$('loginErr').textContent=e.message;}
+};
+$('logout').onclick=logout;
+$('addForm').onsubmit=async ev=>{
+  ev.preventDefault();
+  try{
+    await api('POST',{numero:$('addNum').value,nombre:$('addName').value});
+    $('addNum').value='';$('addName').value='';toast('Número agregado');load();
+  }catch(e){toast(e.message);}
+};
+
+if(adminKey)showApp();else $('login').hidden=false;
+setInterval(()=>{if(!$('app').hidden&&!document.hidden&&!$('list').contains(document.activeElement))load();},30000);
+</script>
+</body>
+</html>
